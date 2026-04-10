@@ -301,12 +301,25 @@ button { cursor: pointer; background: none; border: none; }
   height: 6px;
   border-radius: 50%;
   background: var(--color-accent);
+  /* Force a dedicated GPU compositing layer upfront to prevent
+     mid-animation promotion/demotion flickering on mobile */
+  transform: translateZ(0);
+  will-change: opacity;
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
 @keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.8); }
+  /* Opacity-only animation: cheapest GPU op, no scale to avoid
+     compositing flicker on mobile hardware acceleration */
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge-dot {
+    animation: none;
+    will-change: auto;
+  }
 }
 
 .hero-title {
