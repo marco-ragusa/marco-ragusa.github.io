@@ -247,7 +247,8 @@ button { cursor: pointer; background: none; border: none; }
   gap: var(--space-2);
 }
 
-.theme-toggle {
+.theme-toggle,
+.nav-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -257,9 +258,97 @@ button { cursor: pointer; background: none; border: none; }
   color: var(--color-text-muted);
   transition: color var(--transition-interactive), background var(--transition-interactive);
 }
-.theme-toggle:hover {
+.theme-toggle:hover,
+.nav-toggle:hover {
   color: var(--color-text);
   background: var(--color-surface-offset);
+}
+
+/* ── NAV TOGGLE (hamburger) ───────────────────────── */
+.nav-toggle {
+  display: none; /* hidden on desktop */
+  flex-direction: column;
+  gap: 5px;
+  padding: 0;
+}
+
+.nav-toggle span {
+  display: block;
+  width: 18px;
+  height: 1.5px;
+  background: currentColor;
+  border-radius: 2px;
+  transform-origin: center;
+  transition: transform var(--transition-interactive),
+              opacity  var(--transition-interactive);
+}
+
+/* Animate bars → × when menu is open */
+.site-header.nav-open .nav-toggle span:nth-child(1) {
+  transform: translateY(6.5px) rotate(45deg);
+}
+.site-header.nav-open .nav-toggle span:nth-child(2) {
+  opacity: 0;
+  transform: scaleX(0);
+}
+.site-header.nav-open .nav-toggle span:nth-child(3) {
+  transform: translateY(-6.5px) rotate(-45deg);
+}
+
+/* ── MOBILE NAV PANEL ─────────────────────────────── */
+.mobile-nav {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 49;
+  background: color-mix(in srgb, var(--color-bg) 92%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--color-divider);
+  /* closed state */
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    max-height var(--transition-slow),
+    opacity    var(--transition-slow),
+    visibility var(--transition-slow);
+}
+
+.site-header.nav-open .mobile-nav {
+  max-height: 320px;
+  opacity: 1;
+  visibility: visible;
+}
+
+.mobile-nav .container {
+  display: flex;
+  flex-direction: column;
+  padding-block: var(--space-3);
+}
+
+.mobile-nav a {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  padding: var(--space-3) var(--space-2);
+  border-radius: var(--radius-sm);
+  border-bottom: 1px solid var(--color-divider);
+  transition: color var(--transition-interactive),
+              background var(--transition-interactive);
+}
+.mobile-nav a:last-child {
+  border-bottom: none;
+}
+.mobile-nav a:hover {
+  color: var(--color-text);
+  background: var(--color-surface-offset);
+}
+.mobile-nav a.active {
+  color: var(--color-text);
+  font-weight: 700;
 }
 
 /* ── HERO ─────────────────────────────────────────────── */
@@ -837,6 +926,15 @@ button { cursor: pointer; background: none; border: none; }
 @media (max-width: 768px) {
   .nav {
     display: none;
+  }
+
+  .nav-toggle {
+    display: flex;
+  }
+
+  /* Push the actions cluster to the far right when .nav is hidden */
+  .header-actions {
+    margin-inline-start: auto;
   }
 
   .hero-title {

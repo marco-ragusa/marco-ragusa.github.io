@@ -84,10 +84,58 @@
   elements.forEach((el) => observer.observe(el));
 })();
 
+/* ── MOBILE NAV TOGGLE ────────────────────────────────── */
+(function () {
+  const toggle    = document.querySelector('.nav-toggle');
+  const header    = document.querySelector('.site-header');
+  const mobileNav = document.getElementById('mobile-nav');
+
+  if (!toggle || !header || !mobileNav) return;
+
+  function openNav() {
+    header.classList.add('nav-open');
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.setAttribute('aria-label', 'Close navigation');
+    mobileNav.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeNav() {
+    header.classList.remove('nav-open');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-label', 'Open navigation');
+    mobileNav.setAttribute('aria-hidden', 'true');
+  }
+
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    header.classList.contains('nav-open') ? closeNav() : openNav();
+  });
+
+  // Close when any mobile nav link is tapped
+  mobileNav.querySelectorAll('a').forEach((link) => {
+    link.addEventListener('click', closeNav);
+  });
+
+  // Close when clicking outside the header
+  document.addEventListener('click', (e) => {
+    if (header.classList.contains('nav-open') && !header.contains(e.target)) {
+      closeNav();
+    }
+  });
+
+  // Close on Escape key and return focus to toggle
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && header.classList.contains('nav-open')) {
+      closeNav();
+      toggle.focus();
+    }
+  });
+})();
+
 /* ── ACTIVE NAV LINK ──────────────────────────────────── */
 (function () {
   const sections = Array.from(document.querySelectorAll('section[id]'));
-  const navLinks = document.querySelectorAll('.nav a');
+  const navLinks = document.querySelectorAll('.nav a, .mobile-nav a');
 
   if (!sections.length || !navLinks.length) return;
 
