@@ -86,25 +86,36 @@
 
 /* ── ACTIVE NAV LINK ──────────────────────────────────── */
 (function () {
-  const sections = document.querySelectorAll('section[id]');
+  const sections = Array.from(document.querySelectorAll('section[id]'));
   const navLinks = document.querySelectorAll('.nav a');
 
   if (!sections.length || !navLinks.length) return;
 
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          navLinks.forEach((link) => {
-            link.style.color = '';
-          });
-          const activeLink = document.querySelector(`.nav a[href="#${entry.target.id}"]`);
-          if (activeLink) activeLink.style.color = 'var(--color-text)';
-        }
-      });
-    },
-    { threshold: 0.35 }
-  );
+  function setActive(id) {
+    navLinks.forEach((link) => {
+      if (link.getAttribute('href') === '#' + id) {
+        link.style.color = 'var(--color-text)';
+        link.style.fontWeight = '700';
+      } else {
+        link.style.color = '';
+        link.style.fontWeight = '';
+      }
+    });
+  }
 
-  sections.forEach((section) => observer.observe(section));
+  function onScroll() {
+    const scrollY = window.scrollY + 120; // offset for sticky header
+
+    // Find the last section whose top is above the scroll position
+    let current = sections[0].id;
+    for (const section of sections) {
+      if (section.offsetTop <= scrollY) {
+        current = section.id;
+      }
+    }
+    setActive(current);
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
 })();
