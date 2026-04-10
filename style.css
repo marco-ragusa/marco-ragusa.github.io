@@ -218,7 +218,6 @@ button { cursor: pointer; background: none; border: none; }
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  flex-shrink: 0;
 }
 
 .logo-text {
@@ -514,11 +513,17 @@ button { cursor: pointer; background: none; border: none; }
 }
 
 /* ── EXPERIENCE / TIMELINE ───────────────────────────── */
-.timeline {
-  position: relative;
-  padding-inline-start: var(--space-8);
+:root {
+  --timeline-gutter: 2rem; /* 32px — must match padding-inline-start below */
+  --timeline-dot-size: 11px;
 }
 
+.timeline {
+  position: relative;
+  padding-inline-start: var(--timeline-gutter);
+}
+
+/* The vertical line sits exactly at left:0 of .timeline */
 .timeline::before {
   content: '';
   position: absolute;
@@ -539,12 +544,15 @@ button { cursor: pointer; background: none; border: none; }
 }
 .timeline-item:last-child { margin-bottom: 0; }
 
+/* Dot: centred on the line (left:0 of .timeline)
+   = -(gutter) from left edge of item, then back half a dot-width */
 .timeline-dot {
   position: absolute;
-  left: calc(-1 * var(--space-8) - 5px);
+  left: calc(-1 * var(--timeline-gutter));
+  transform: translateX(-50%);
   top: var(--space-2);
-  width: 11px;
-  height: 11px;
+  width: var(--timeline-dot-size);
+  height: var(--timeline-dot-size);
   border-radius: 50%;
   background: var(--color-primary);
   border: 2px solid var(--color-bg);
@@ -553,7 +561,7 @@ button { cursor: pointer; background: none; border: none; }
 }
 
 .timeline-item:hover .timeline-dot {
-  transform: scale(1.4);
+  transform: translateX(-50%) scale(1.4);
 }
 
 .timeline-content {
@@ -823,7 +831,8 @@ button { cursor: pointer; background: none; border: none; }
   }
 
   .timeline {
-    padding-inline-start: var(--space-6);
+    --timeline-gutter: var(--space-6);
+    padding-inline-start: var(--timeline-gutter);
   }
 
   .timeline-header {
