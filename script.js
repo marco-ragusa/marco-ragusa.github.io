@@ -3,8 +3,10 @@
   const toggle = document.querySelector('[data-theme-toggle]');
   const root   = document.documentElement;
 
-  // Initialise from system preference on first visit
+  // The inline head script already applied the saved/system theme; mirror it here.
+  // Fallbacks cover the case where that script didn't run.
   let currentTheme = root.getAttribute('data-theme') ||
+    safeGet('theme') ||
     (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   root.setAttribute('data-theme', currentTheme);
   updateIcon(currentTheme);
@@ -13,8 +15,16 @@
     toggle.addEventListener('click', () => {
       currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
       root.setAttribute('data-theme', currentTheme);
+      safeSet('theme', currentTheme); // remember the explicit choice
       updateIcon(currentTheme);
     });
+  }
+
+  function safeGet(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
+  function safeSet(key, value) {
+    try { localStorage.setItem(key, value); } catch (e) {}
   }
 
   function updateIcon(theme) {
