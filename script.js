@@ -1,204 +1,202 @@
-/* Theme toggle */
+/* Theme toggle: follows the system until the visitor picks one */
 (function () {
-  const toggle = document.querySelector('[data-theme-toggle]');
-  const root   = document.documentElement;
+  var root = document.documentElement;
+  var toggle = document.querySelector('[data-theme-toggle]');
+  if (!toggle) return;
 
-  // The inline head script already applied the saved/system theme; mirror it here.
-  // Fallbacks cover the case where that script didn't run.
-  let currentTheme = root.getAttribute('data-theme') ||
-    safeGet('theme') ||
-    (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  root.setAttribute('data-theme', currentTheme);
-  updateIcon(currentTheme);
+  var media = window.matchMedia('(prefers-color-scheme: dark)');
 
-  if (toggle) {
-    toggle.addEventListener('click', () => {
-      currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
-      root.setAttribute('data-theme', currentTheme);
-      safeSet('theme', currentTheme); // remember the explicit choice
-      updateIcon(currentTheme);
-    });
+  function current() {
+    return root.getAttribute('data-theme') || (media.matches ? 'dark' : 'light');
   }
 
-  function safeGet(key) {
-    try { return localStorage.getItem(key); } catch (e) { return null; }
-  }
-  function safeSet(key, value) {
-    try { localStorage.setItem(key, value); } catch (e) {}
+  function label() {
+    toggle.setAttribute('aria-label', current() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
   }
 
-  function updateIcon(theme) {
-    if (!toggle) return;
-    if (theme === 'dark') {
-      // Show sun (we're in dark mode, offer to switch to light)
-      toggle.innerHTML = `
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="5"/>
-          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-        </svg>`;
-      toggle.setAttribute('aria-label', 'Switch to light mode');
+  toggle.addEventListener('click', function () {
+    var next = current() === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    label();
+  });
+
+  if (media.addEventListener) media.addEventListener('change', label);
+  label();
+})();
+
+/*
+  Uptime strip + role durations.
+  Single source of truth: the .role elements in index.html
+  (data-start / data-end as YYYY-MM, no data-end = still there).
+*/
+(function () {
+  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  var now = new Date();
+  var nowIdx = now.getFullYear() * 12 + now.getMonth();
+
+  function toIdx(ym) {
+    var p = ym.split('-');
+    return Number(p[0]) * 12 + (Number(p[1]) - 1);
+  }
+  function monthName(idx) {
+    return MONTHS[idx % 12] + ' ' + Math.floor(idx / 12);
+  }
+  function duration(months) {
+    var y = Math.floor(months / 12);
+    var m = months % 12;
+    var parts = [];
+    if (y) parts.push(y + (y === 1 ? ' year' : ' years'));
+    if (m) parts.push(m + (m === 1 ? ' month' : ' months'));
+    return parts.join(', ');
+  }
+
+  var roles = Array.prototype.map.call(document.querySelectorAll('.role[data-start]'), function (el) {
+    var start = toIdx(el.dataset.start);
+    var end = el.dataset.end ? toIdx(el.dataset.end) : nowIdx;
+    var title = el.querySelector('.role-title');
+    return {
+      el: el,
+      id: el.id,
+      company: el.dataset.company,
+      title: title ? title.textContent.trim() : '',
+      start: start,
+      end: Math.max(start, end)
+    };
+  });
+  if (!roles.length) return;
+
+  // Role length next to the dates (inclusive of first and last month)
+  roles.forEach(function (r) {
+    var slot = r.el.querySelector('[data-role-length]');
+    if (slot) slot.textContent = duration(r.end - r.start + 1);
+  });
+
+  var figure = document.querySelector('[data-uptime]');
+  var strip = document.querySelector('[data-uptime-strip]');
+  var tip = document.querySelector('[data-uptime-tip]');
+  var total = document.querySelector('[data-uptime-total]');
+  if (!figure || !strip) return;
+
+  var first = Math.min.apply(null, roles.map(function (r) { return r.start; }));
+
+  // For each month, the role that started most recently and was active then
+  var months = [];
+  for (var i = first; i <= nowIdx; i++) {
+    var active = roles
+      .filter(function (r) { return r.start <= i && i <= r.end; })
+      .sort(function (a, b) { return b.start - a.start; })[0] || null;
+    months.push({ idx: i, role: active });
+  }
+
+  if (total) total.textContent = duration(months.length);
+
+  // Group consecutive months by employer
+  var segments = [];
+  months.forEach(function (m) {
+    var company = m.role ? m.role.company : null;
+    var last = segments[segments.length - 1];
+    if (last && last.company === company) {
+      last.months.push(m);
     } else {
-      // Show moon (we're in light mode, offer to switch to dark)
-      toggle.innerHTML = `
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-        </svg>`;
-      toggle.setAttribute('aria-label', 'Switch to dark mode');
-    }
-  }
-})();
-
-/* Sticky header */
-(function () {
-  const header = document.getElementById('top')?.closest('header') ||
-                 document.querySelector('.site-header');
-  if (!header) return;
-
-  const onScroll = () => {
-    if (window.scrollY > 20) {
-      header.classList.add('scrolled');
-    } else {
-      header.classList.remove('scrolled');
-    }
-  };
-
-  window.addEventListener('scroll', onScroll, { passive: true });
-  onScroll();
-})();
-
-/* Header height -> CSS variable (single source of truth for scroll offset) */
-(function () {
-  const header = document.querySelector('.site-header');
-  if (!header) return;
-
-  const sync = () => {
-    document.documentElement.style.setProperty('--header-h', header.offsetHeight + 'px');
-  };
-
-  sync();
-  window.addEventListener('resize', sync, { passive: true });
-
-  // Catch height changes from font swap, zoom, etc.
-  if ('ResizeObserver' in window) {
-    new ResizeObserver(sync).observe(header);
-  }
-})();
-
-/* Scroll reveal */
-(function () {
-  const elements = document.querySelectorAll(
-    '.skill-card, .timeline-item, .extras-card, .contact-link, .section-header, .hero-title, .hero-role, .hero-summary, .hero-location, .hero-cta'
-  );
-
-  elements.forEach((el) => el.classList.add('fade-up'));
-
-  if (!('IntersectionObserver' in window)) {
-    elements.forEach((el) => el.classList.add('visible'));
-    return;
-  }
-
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('visible');
-          observer.unobserve(entry.target);
-        }
-      });
-    },
-    { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
-  );
-
-  elements.forEach((el) => observer.observe(el));
-})();
-
-/* Mobile nav toggle */
-(function () {
-  const toggle    = document.querySelector('.nav-toggle');
-  const header    = document.querySelector('.site-header');
-  const mobileNav = document.getElementById('mobile-nav');
-
-  if (!toggle || !header || !mobileNav) return;
-
-  function openNav() {
-    header.classList.add('nav-open');
-    toggle.setAttribute('aria-expanded', 'true');
-    toggle.setAttribute('aria-label', 'Close navigation');
-    mobileNav.setAttribute('aria-hidden', 'false');
-  }
-
-  function closeNav() {
-    header.classList.remove('nav-open');
-    toggle.setAttribute('aria-expanded', 'false');
-    toggle.setAttribute('aria-label', 'Open navigation');
-    mobileNav.setAttribute('aria-hidden', 'true');
-  }
-
-  toggle.addEventListener('click', (e) => {
-    e.stopPropagation();
-    header.classList.contains('nav-open') ? closeNav() : openNav();
-  });
-
-  // Close when any mobile nav link is tapped
-  mobileNav.querySelectorAll('a').forEach((link) => {
-    link.addEventListener('click', closeNav);
-  });
-
-  // Close when clicking outside the header
-  document.addEventListener('click', (e) => {
-    if (header.classList.contains('nav-open') && !header.contains(e.target)) {
-      closeNav();
+      segments.push({ company: company, months: [m] });
     }
   });
 
-  // Close on Escape key and return focus to toggle
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && header.classList.contains('nav-open')) {
-      closeNav();
-      toggle.focus();
+  var barIndex = 0;
+  segments.forEach(function (seg) {
+    var firstM = seg.months[0];
+    var lastM = seg.months[seg.months.length - 1];
+    var target = lastM.role ? lastM.role.id : '';
+
+    var a = document.createElement(target ? 'a' : 'div');
+    a.className = 'seg';
+    a.style.flex = seg.months.length + ' 1 0';
+    // Show the real dates of the roles in this segment, not the trimmed bar range
+    var segRoles = seg.months.map(function (m) { return m.role; }).filter(Boolean);
+    var from = segRoles.length ? Math.min.apply(null, segRoles.map(function (r) { return r.start; })) : firstM.idx;
+    var to = segRoles.length ? Math.max.apply(null, segRoles.map(function (r) { return r.end; })) : lastM.idx;
+    var stillThere = segRoles.some(function (r) { return !r.el.dataset.end; });
+    a.dataset.name = seg.company || 'No role';
+    a.dataset.range = monthName(from) + ' – ' + (stillThere ? 'present' : monthName(to));
+    if (target) {
+      a.href = '#' + target;
+      a.setAttribute('aria-label', a.dataset.name + ', ' + a.dataset.range.replace('–', 'to') + '. Show role.');
     }
-  });
-})();
 
-/* Active nav link */
-(function () {
-  const header   = document.querySelector('.site-header');
-  const sections = Array.from(document.querySelectorAll('section[id]'));
-  const navLinks = document.querySelectorAll('.nav a, .mobile-nav a');
+    var bars = document.createElement('span');
+    bars.className = 'seg-bars';
+    bars.setAttribute('aria-hidden', 'true');
 
-  if (!sections.length || !navLinks.length) return;
-
-  // Same offset the anchor scroll lands at, so the highlight switches in sync.
-  let headerH = header ? header.offsetHeight : 0;
-  window.addEventListener('resize', () => {
-    headerH = header ? header.offsetHeight : 0;
-  }, { passive: true });
-
-  function setActive(id) {
-    navLinks.forEach((link) => {
-      if (link.getAttribute('href') === '#' + id) {
-        link.style.color = 'var(--color-text)';
-        link.style.fontWeight = '700';
-      } else {
-        link.style.color = '';
-        link.style.fontWeight = '';
-      }
+    seg.months.forEach(function (m) {
+      var b = document.createElement('span');
+      b.className = 'bar';
+      b.style.setProperty('--i', barIndex++);
+      b.dataset.month = monthName(m.idx);
+      b.dataset.role = m.role ? m.role.title + ', ' + m.role.company : 'No role';
+      bars.appendChild(b);
     });
+
+    var label = document.createElement('span');
+    label.className = 'seg-label';
+    label.setAttribute('aria-hidden', 'true');
+    label.innerHTML = '<b></b><span></span>';
+    label.querySelector('b').textContent = seg.company || '';
+    label.querySelector('span').textContent = String(Math.floor(firstM.idx / 12));
+
+    a.appendChild(bars);
+    a.appendChild(label);
+    strip.appendChild(a);
+  });
+
+  // Play the fill-in sequence once
+  requestAnimationFrame(function () { figure.classList.add('is-ready'); });
+
+  // Tooltip: month + role under the pointer, or the whole employer on keyboard focus
+  if (!tip) return;
+  var hot = null;
+
+  function place(x) {
+    var box = figure.getBoundingClientRect();
+    var stripBox = strip.getBoundingClientRect();
+    var w = tip.offsetWidth;
+    var left = Math.min(Math.max(x - box.left - w / 2, 0), box.width - w);
+    tip.style.left = left + 'px';
+    tip.style.top = (stripBox.top - box.top - tip.offsetHeight - 10) + 'px';
+  }
+  function show(title, text, x) {
+    tip.innerHTML = '<b></b><span></span>';
+    tip.querySelector('b').textContent = title;
+    tip.querySelector('span').textContent = text;
+    tip.classList.add('is-on');
+    place(x);
+  }
+  function hide() {
+    tip.classList.remove('is-on');
+    if (hot) { hot.classList.remove('is-hot'); hot = null; }
   }
 
-  function onScroll() {
-    const scrollY = window.scrollY + headerH + 1; // match sticky header offset
-
-    // Find the last section whose top is above the scroll position
-    let current = sections[0].id;
-    for (const section of sections) {
-      if (section.offsetTop <= scrollY) {
-        current = section.id;
-      }
+  strip.addEventListener('pointermove', function (e) {
+    if (e.pointerType === 'touch') return;
+    var bar = e.target.closest('.bar');
+    if (!bar) { hide(); return; }
+    if (hot !== bar) {
+      if (hot) hot.classList.remove('is-hot');
+      hot = bar;
+      bar.classList.add('is-hot');
+      show(bar.dataset.month, bar.dataset.role, e.clientX);
+    } else {
+      place(e.clientX);
     }
-    setActive(current);
-  }
+  });
+  strip.addEventListener('pointerleave', hide);
 
-  window.addEventListener('scroll', onScroll, { passive: true });
-  onScroll();
+  strip.addEventListener('focusin', function (e) {
+    var seg = e.target.closest('.seg');
+    if (!seg) return;
+    var r = seg.getBoundingClientRect();
+    show(seg.dataset.name, seg.dataset.range, r.left + r.width / 2);
+  });
+  strip.addEventListener('focusout', hide);
 })();
